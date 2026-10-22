@@ -1,0 +1,18 @@
+{
+  "Host": "Microsoft Windows NT 10.0.26100.0",
+  "Profile": "runneradmin",
+  "Version": "0.6.6+2d0d24acf51962006d75f74acd52aaa25f043ac4",
+  "InstallerSha256": "60A6F6FA7DA766419A72F100B99783129407DFE52C408A2EAE4D057284192E6C",
+  "Install": {
+    "ExitCode": 0,
+    "VisibleWindows": [],
+    "ElapsedSeconds": 2.4671907
+  },
+  "Uninstall": {
+    "ExitCode": 0,
+    "VisibleWindows": [],
+    "ElapsedSeconds": 1.2179966
+  },
+  "AutoLaunch": false,
+  "InstallerNetworkBlocked": true
+}

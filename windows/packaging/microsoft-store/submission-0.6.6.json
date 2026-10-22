@@ -1,0 +1,43 @@
+{
+  "status": "Update in review (confirmed live in Microsoft Partner Center)",
+  "checkedAtUtc": "2026-10-22T19:25:09.988310+00:00",
+  "productName": "Amanu",
+  "publisher": "Fands Software LLC",
+  "formalRepresentative": "Fedor Borshchev",
+  "storeId": "XP9C837MVW02QB",
+  "partnerCenterProductId": "48f4251e-dd3c-4cdf-86d1-5b4e4b1cfc0f",
+  "partnerCenterPackageId": "19363016",
+  "partnerCenterUrl": "https://partner.microsoft.com/en-us/dashboard/win32apps/48f4251e-dd3c-4cdf-86d1-5b4e4b1cfc0f/overview",
+  "version": "0.6.6",
+  "architecture": "x64",
+  "silentInstallArguments": "--silent",
+  "installerUrl": "https://amanu.me/downloads/windows-store/0.6.6/Amanu-0.6.6-Setup.exe",
+  "installerSha256": "60a6f6fa7da766419a72f100b99783129407dfe52c408a2eae4d057284192e6c",
+  "installerBytes": 102310512,
+  "source": {
+    "release": "windows-v0.6.6",
+    "commit": "2d0d24acf51962006d75f74acd52aaa25f043ac4",
+    "portableSha256": "13affe923a889b3b2faeb5bc300a864e5bf0249de85fb042593fbd640be485f9",
+    "websiteInstallerSha256": "2394bd291be3d8696432fc0514a041a194d7f502ac075f404fe81dc5da785f91",
+    "note": "Published 0.6.6 payload repackaged after adding missing embedded Authenticode signatures. Application code was not rebuilt. Existing valid vendor signatures and already-published release assets were preserved."
+  },
+  "packagingRun": "https://github.com/gsamat/amanu/actions/runs/39837845089",
+  "windowsValidationRun": "https://github.com/gsamat/amanu/actions/runs/39838542980",
+  "validation": {
+    "embeddedSignatures": "All 510 installed PE files Valid, embedded and timestamped; SignTool verify /pa /all passed for portable payload and installer.",
+    "windowsHost": "Microsoft Windows NT 10.0.26100.0",
+    "installedVersion": "0.6.6+2d0d24acf51962006d75f74acd52aaa25f043ac4",
+    "quietInstallExitCode": 0,
+    "quietUninstallExitCode": 0,
+    "visibleWindows": [],
+    "autoLaunch": false,
+    "installerNetworkBlocked": true,
+    "publicDownloadSha256Verified": true,
+    "gui": "Not re-tested on a connected physical Windows host; none was exposed in this session. Silent installation and removal ran on a disposable GitHub Windows runner."
+  },
+  "microsoftPreliminaryValidation": "Running at submission. Microsoft recommended waiting; Submit anyway was used after independent Windows signature and installation checks passed.",
+  "reviewSlaShown": "3 business days",
+  "publicStoreVersionAfterSubmission": "0.6.3",
+  "publicManifestUrl": "https://storeedgefd.dsx.mp.microsoft.com/v9.0/packageManifests/XP9C837MVW02QB?Market=US",
+  "website": "Both landing languages and /win.exe remain EXE-only on 0.6.6. Do not advertise Store as current until its public installation manifest serves 0.6.6 or newer."
+}
