@@ -23,8 +23,11 @@ gh workflow run windows-beta.yml --repo gsamat/amanu --ref <prepared-windows-rel
 
 Local `windows/scripts/Build-Release.ps1` and the workflow both produce
 `Amanu-<VERSION>-Setup.exe`, update installer metadata and generate `SHA256SUMS`.
-After publication, point both landing-page languages, `/win.exe` and package
-manifests at the versioned asset. Update the GitHub README from public releases:
+After publication, point package manifests at the versioned asset. Both landing-page
+languages and `/win.exe` lead to the public Microsoft Store listing at
+`https://apps.microsoft.com/detail/XP9C837MVW02QB`; keep those Store links when
+publishing later releases. Preserve the immutable installer URLs used by Store
+submissions. Update the GitHub README from public releases:
 
 ```sh
 python3 scripts/update-readme-downloads.py --write --verify-downloads

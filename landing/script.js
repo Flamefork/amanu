@@ -9,10 +9,10 @@
     new Image().src = url;
 })();
 
-// Count release downloads as an aggregate site event. The request stays on
+// Count release and Microsoft Store downloads as an aggregate site event. The request stays on
 // the same first-party /m endpoint and does not share the app installation ID.
 (function () {
-    document.querySelectorAll('a[href*="/releases/download/"]').forEach(function (link) {
+    document.querySelectorAll('.cta-row a.btn').forEach(function (link) {
         link.addEventListener('click', function () {
             var url = new URL('/m', location.origin);
             url.searchParams.set('p', 'download_clicked');
