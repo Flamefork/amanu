@@ -21,19 +21,23 @@ const { chromium } = require('playwright');
                     events.push(new URL(route.request().url()));
                     await route.fulfill({ status: 204 });
                 });
-                await page.goto(`${base}/${language}/`);
-                const windows = page.locator('a[href$="/Amanu-0.6.4-Setup.exe"]');
+                await page.goto(language === 'en' ? `${base}/` : `${base}/ru/`);
+                const windows = page.locator('a[href$="/Amanu-0.6.6-Setup.exe"]');
                 assert.equal(await windows.count(), 2, `${language}: Windows download in hero and footer`);
+                const store = page.locator('a[href="https://apps.microsoft.com/detail/XP9C837MVW02QB"]');
+                assert.equal(await store.count(), 2, `${language}: Store alternative in hero and footer`);
+                for (const text of await store.allTextContents()) assert.match(text, /0\.6\.3/);
+                for (const text of await windows.allTextContents()) assert.match(text, /EXE/);
                 const mac = page.locator('a[href$="-macos-universal.dmg"]');
                 assert.equal(await mac.count(), 2, `${language}: macOS download in hero and footer`);
-                for (const link of [windows.first(), mac.first()]) {
+                for (const link of [windows.first(), store.first(), mac.first()]) {
                     // Cancel navigation, keeping the real click and analytics handler active.
                     await link.evaluate(el => el.addEventListener('click', e => e.preventDefault()));
                     await link.click();
                 }
                 await page.waitForTimeout(100);
-                assert.equal(events.filter(url => url.searchParams.get('p') === 'download_clicked').length, 2,
-                    `${language}: both platform clicks counted exactly once`);
+                assert.equal(events.filter(url => url.searchParams.get('p') === 'download_clicked').length, 3,
+                    `${language}: EXE, Store and macOS clicks counted exactly once`);
                 const imageSources = await page.locator('main picture img').evaluateAll(images => images.map(img => img.currentSrc));
                 assert.equal(imageSources.length, 2);
                 for (const src of imageSources) {
@@ -55,7 +59,7 @@ const { chromium } = require('playwright');
                 await context.close();
             }
         }
-        console.log('PASS: macOS/iPhone/Windows screenshots at Retina resolution and both download events, EN/RU, light/dark');
+        console.log('PASS: macOS/iPhone/Windows screenshots at Retina resolution and EXE/Store/macOS click events, EN/RU, light/dark');
     } finally {
         await browser.close();
     }

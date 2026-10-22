@@ -245,6 +245,10 @@ main {
     margin: 0;
 }
 
+.install-options {
+    margin-bottom: 0.9rem;
+}
+
 /* ── Скриншоты ── */
 
 .shot {
