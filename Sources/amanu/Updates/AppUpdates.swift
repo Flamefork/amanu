@@ -26,6 +26,9 @@ final class AppUpdates: NSObject, SPUUpdaterDelegate {
         self.gate = gate
         super.init()
         guard Runtime.supportsPersistentFeatures else { return }
+        // A build made with UPDATES=off has no feed, and Sparkle started
+        // without one greets every launch with an error alert.
+        guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil else { return }
         controller = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: self,

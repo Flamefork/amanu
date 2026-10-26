@@ -1,5 +1,12 @@
 # Amanu
 
+> **This is a personal fork.** It carries one fix that is not in the upstream
+> release yet — [raw capture records silence from a multichannel audio
+> interface](https://github.com/flamefork/amanu/commit/eba46e8e9bbb828cd7d3d99a6e8baac5bbec7e55)
+> — and a way to build and install the app on one Mac with Command Line Tools
+> only. For everything else, use [gsamat/amanu](https://github.com/gsamat/amanu).
+> See [Building this fork](#building-this-fork) below.
+
 **Records and transcribes online meetings. Automatically.**
 
 Amanu is a free, open-source meeting recorder for macOS and Windows. It works
@@ -590,3 +597,58 @@ project's provenance and explains how the architecture diverged.
 The name comes from *amanuensis*: a person whose job is to write down what is
 said. Amanu is free software under the [MIT license](LICENSE); dependency
 licenses are listed in [third-party notices](THIRD-PARTY-NOTICES.md).
+
+## Building this fork
+
+`make local` builds `.build/Amanu.app` for this Mac with Command Line Tools,
+no Xcode: arm64 only, the classic icon (the Tahoe icon needs `actool`), and no
+update feed, so Sparkle never installs the upstream release over it. It signs
+with a self-signed certificate named `Amanu Local Signing`; macOS keys the
+microphone and system-audio grants to that signature, so they survive rebuilds.
+Such a certificate has no Team ID, so the local build also turns off library
+validation — otherwise dyld refuses the bundle's own frameworks.
+`make install-local` builds, quits Amanu (it asks first if a meeting is being
+recorded), replaces `/Applications/Amanu.app` and starts the new copy.
+
+The certificate is made once per Mac and lives only in the login keychain:
+
+```sh
+d=$(mktemp -d)
+printf '[req]\ndistinguished_name=dn\nprompt=no\nx509_extensions=ext\n[dn]\nCN=Amanu Local Signing\n[ext]\nbasicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=critical,codeSigning\n' > "$d/cert.cnf"
+/usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+  -config "$d/cert.cnf" -keyout "$d/key.pem" -out "$d/cert.pem"
+/usr/bin/openssl pkcs12 -export -inkey "$d/key.pem" -in "$d/cert.pem" \
+  -out "$d/id.p12" -passout pass:amanu
+security import "$d/id.p12" -k ~/Library/Keychains/login.keychain-db \
+  -P amanu -T /usr/bin/codesign
+security add-trusted-cert -r trustRoot -p codeSign \
+  -k ~/Library/Keychains/login.keychain-db "$d/cert.pem"   # asks for your password
+rm -rf "$d"
+make identities   # lists "Amanu Local Signing"
+```
+
+`/usr/bin/openssl` matters: the PKCS#12 that Homebrew's OpenSSL 3 writes is one
+`security import` cannot read. The first install from this fork replaces the
+upstream signature, so macOS asks for the microphone, system audio and calendar
+once more; later rebuilds keep the grants.
+
+Tests run with Command Line Tools once they are told where Swift Testing is:
+
+```sh
+F=/Library/Developer/CommandLineTools/Library/Developer/Frameworks
+swift test -Xswiftc -F -Xswiftc $F -Xlinker -F -Xlinker $F \
+  -Xlinker -rpath -Xlinker $F \
+  -Xlinker -rpath -Xlinker /Library/Developer/CommandLineTools/Library/Developer/usr/lib
+```
+
+To take a new upstream release, merge it and reinstall:
+
+```sh
+git fetch upstream --tags
+git merge v0.6.6            # the new release tag
+make install-local
+```
+
+Once upstream ships the fix, the conflict in `MicRecorder.swift` resolves to
+upstream's version. To go back to the upstream build entirely, install the DMG
+from [amanu.me](https://amanu.me/); macOS asks for the permissions once more.

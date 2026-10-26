@@ -22,7 +22,12 @@
 # runs on Apple Silicon and Intel Macs. Two
 # --arch flags select a multi-arch directory. Ask SwiftPM for its path:
 # Xcode 27's Swift Build engine uses .build/out instead of .build/apple.
-BUILT = $(shell swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/amanu
+#
+# ARCHS=arm64 builds for this Mac alone, and is the one build Command Line
+# Tools can do: two --arch flags need xcbuild, which only ships with Xcode.
+ARCHS     ?= arm64 x86_64
+ARCH_FLAGS = $(ARCHS:%=--arch %)
+BUILT = $(shell swift build -c release $(ARCH_FLAGS) --show-bin-path)/amanu
 
 # The application bundle. Assembled by hand rather than by an Xcode project:
 # the package already builds and tests with SwiftPM, and an .app is a
@@ -64,6 +69,8 @@ LOCALVQE_ROOT = .build/localvqe
 LOCALVQE_LIB = $(LOCALVQE_ROOT)/lib/liblocalvqe.dylib
 LOCALVQE_MODEL = $(LOCALVQE_ROOT)/model/localvqe-v1.4-aec-200K-f32.gguf
 
+ENTITLEMENTS ?= Packaging/Amanu.entitlements
+
 # Prefer Developer ID (distributable, long-lived) over Apple Development
 # (fine for a machine-local tool). Falls back to ad-hoc so a clean checkout on
 # a machine with no certificates still builds.
@@ -77,7 +84,7 @@ ifeq ($(strip $(SIGN_ID)),)
 SIGN_ID := -
 endif
 
-.PHONY: all build localvqe verify-localvqe app icon run-app identities verify clean release release-dry
+.PHONY: all build localvqe verify-localvqe app icon run-app local install-local identities verify clean release release-dry
 
 all: app
 
@@ -88,7 +95,7 @@ verify-localvqe: localvqe
 	@scripts/verify-localvqe.py
 
 build: localvqe
-	swift build -c release --arch arm64 --arch x86_64
+	swift build -c release $(ARCH_FLAGS)
 
 # Drawn from the same feather the menu bar uses, so the Dock, the window and
 # the status item are one program rather than three.
@@ -108,9 +115,18 @@ app: build $(ICON)
 	@cp $(LOCALVQE_ROOT)/verification.json $(APP)/Contents/Resources/LocalVQE-verification.json
 	@sed -e 's/__SHORT_VERSION__/$(VERSION)/' -e 's/__BUILD_VERSION__/$(BUILD)/' \
 		Packaging/Amanu-Info.plist > $(APP)/Contents/Info.plist
+	@# UPDATES=off is for a build of your own: Sparkle would otherwise install
+	@# the next release over it, since the release carries a valid signature.
+	@if [ "$(UPDATES)" = off ]; then \
+		plutil -remove SUFeedURL $(APP)/Contents/Info.plist \
+		&& plutil -remove SUPublicEDKey $(APP)/Contents/Info.plist \
+		&& plutil -replace SUEnableAutomaticChecks -bool NO $(APP)/Contents/Info.plist ; \
+	fi
 	@printf 'APPL????' > $(APP)/Contents/PkgInfo
 	@cp $(BUILT_ICON)/Amanu.icns $(APP)/Contents/Resources/Amanu.icns
-	@cp $(BUILT_ICON)/Assets.car $(APP)/Contents/Resources/Assets.car
+	@# Assets.car needs actool, which ships with Xcode and not with Command
+	@# Line Tools; without it every macOS shows the classic icon.
+	@[ ! -f $(BUILT_ICON)/Assets.car ] || cp $(BUILT_ICON)/Assets.car $(APP)/Contents/Resources/Assets.car
 	@mkdir -p $(APP)/Contents/Resources/Licenses
 	@cp LICENSE $(APP)/Contents/Resources/LICENSE
 	@cp THIRD-PARTY-NOTICES.md $(APP)/Contents/Resources/
@@ -138,7 +154,7 @@ app: build $(ICON)
 		$(APP)/Contents/Resources/Licenses/transcribe.cpp-miniz-LICENSE
 	@test -s $(APP)/Contents/Resources/LICENSE \
 		&& test -s $(APP)/Contents/Resources/Amanu.icns \
-		&& test -s $(APP)/Contents/Resources/Assets.car \
+		&& { [ ! -f $(BUILT_ICON)/Assets.car ] || test -s $(APP)/Contents/Resources/Assets.car ; } \
 		&& test -s $(APP)/Contents/Resources/THIRD-PARTY-NOTICES.md \
 		&& test -s $(APP)/Contents/Resources/Models/localvqe-v1.4-aec-200K-f32.gguf \
 		&& test -s $(APP)/Contents/Resources/LocalVQE-verification.json \
@@ -189,28 +205,25 @@ app: build $(ICON)
 	@codesign --force --sign "$(SIGN_ID)" \
 		--identifier me.samat.amanu \
 		--options runtime \
-		--entitlements Packaging/Amanu.entitlements \
+		--entitlements $(ENTITLEMENTS) \
 		--timestamp $(APP) 2>/dev/null \
 	|| codesign --force --sign "$(SIGN_ID)" \
 		--identifier me.samat.amanu \
 		--options runtime \
-		--entitlements Packaging/Amanu.entitlements \
+		--entitlements $(ENTITLEMENTS) \
 		--timestamp=none $(APP)
 	@codesign --verify --strict --verbose=2 $(APP)
 	@# A missing slice is invisible until someone on the wrong Mac opens the
 	@# disk image, so fail here instead.
-	@lipo -archs $(APP)/Contents/MacOS/$(APP_NAME) | grep -q x86_64 \
-		&& lipo -archs $(APP)/Contents/MacOS/$(APP_NAME) | grep -q arm64 \
-		|| (echo "not universal: $$(lipo -archs $(APP)/Contents/MacOS/$(APP_NAME))"; exit 1)
-	@lipo -archs $(APP)/Contents/Frameworks/liblocalvqe.dylib | grep -q x86_64 \
-		&& lipo -archs $(APP)/Contents/Frameworks/liblocalvqe.dylib | grep -q arm64 \
-		|| (echo "LocalVQE not universal: $$(lipo -archs $(APP)/Contents/Frameworks/liblocalvqe.dylib)"; exit 1)
-	@lipo -archs $(APP)/Contents/Frameworks/whisper.framework/Versions/A/whisper | grep -q x86_64 \
-		&& lipo -archs $(APP)/Contents/Frameworks/whisper.framework/Versions/A/whisper | grep -q arm64 \
-		|| (echo "whisper.framework not universal: $$(lipo -archs $(APP)/Contents/Frameworks/whisper.framework/Versions/A/whisper)"; exit 1)
-	@lipo -archs $(APP)/Contents/Frameworks/CTranscribe.framework/Versions/A/CTranscribe | grep -q x86_64 \
-		&& lipo -archs $(APP)/Contents/Frameworks/CTranscribe.framework/Versions/A/CTranscribe | grep -q arm64 \
-		|| (echo "CTranscribe.framework not universal: $$(lipo -archs $(APP)/Contents/Frameworks/CTranscribe.framework/Versions/A/CTranscribe)"; exit 1)
+	@for bin in $(APP)/Contents/MacOS/$(APP_NAME) \
+		$(APP)/Contents/Frameworks/liblocalvqe.dylib \
+		$(APP)/Contents/Frameworks/whisper.framework/Versions/A/whisper \
+		$(APP)/Contents/Frameworks/CTranscribe.framework/Versions/A/CTranscribe ; do \
+		for arch in $(ARCHS) ; do \
+			lipo -archs "$$bin" | grep -qw $$arch \
+			|| { echo "$$bin has no $$arch slice: $$(lipo -archs "$$bin")"; exit 1; } ; \
+		done ; \
+	done
 	@python3 scripts/verify-macos-compatibility.py $(APP) $(MINIMUM_MACOS)
 	@echo "built → $(APP) ($(VERSION) build $(BUILD)) · $$(lipo -archs $(APP)/Contents/MacOS/$(APP_NAME))"
 
@@ -219,6 +232,34 @@ app: build $(ICON)
 # one thing that reliably breaks system-audio capture (.issues/rca-002).
 run-app: app
 	@open $(APP)
+
+# A build for this Mac alone, made with Command Line Tools: arm64 only, no
+# update feed, and signed with a self-signed certificate so the microphone and
+# system-audio grants survive the next rebuild. README.md says how to make the
+# certificate.
+LOCAL_SIGN_ID ?= Amanu Local Signing
+
+# A self-signed certificate has no Team ID, and under the hardened runtime
+# library validation then refuses the bundle's own frameworks — dyld stops at
+# CTranscribe before main. The local build alone turns library validation off.
+LOCAL_ENTITLEMENTS = .build/Amanu-local.entitlements
+
+local:
+	@mkdir -p .build
+	@cp Packaging/Amanu.entitlements $(LOCAL_ENTITLEMENTS)
+	@/usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.disable-library-validation bool true" $(LOCAL_ENTITLEMENTS)
+	@$(MAKE) app ARCHS=arm64 UPDATES=off SIGN_ID="$(LOCAL_SIGN_ID)" ENTITLEMENTS=$(LOCAL_ENTITLEMENTS)
+
+# Quitting goes through amanu's own quit gate, which asks first mid-recording;
+# the copy waits until the old process is really gone (see CLAUDE.md).
+install-local: local
+	@osascript -e 'quit app "Amanu"' 2>/dev/null || true
+	@for i in $$(seq 30); do pgrep -xq Amanu || break; sleep 1; done
+	@! pgrep -xq Amanu || (echo "Amanu is still running — is it recording?"; exit 1)
+	@rm -rf /Applications/Amanu.app
+	@cp -R $(APP) /Applications/
+	@open /Applications/Amanu.app
+	@echo "installed → /Applications/Amanu.app"
 
 identities:
 	@security find-identity -v -p codesigning

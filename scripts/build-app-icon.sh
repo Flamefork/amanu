@@ -25,6 +25,15 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/amanu-app-icon.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/compiled" "$OUTPUT_DIR"
 
+# actool ships with Xcode, not with Command Line Tools. Without it the bundle
+# keeps only the classic icon, which every macOS can show.
+if ! xcrun -f actool >/dev/null 2>&1; then
+    echo "actool not found (Command Line Tools only): classic icon only" >&2
+    rm -f "$OUTPUT_DIR/Assets.car"
+    cp "$FALLBACK_ICON" "$OUTPUT_DIR/Amanu.icns"
+    exit 0
+fi
+
 xcrun actool \
     --compile "$WORK/compiled" \
     --platform macosx \
