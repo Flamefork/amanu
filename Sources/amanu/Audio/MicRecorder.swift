@@ -561,7 +561,7 @@ final class MicRecorder: @unchecked Sendable {
         inputFormat: AVAudioFormat,
         monoFormat: AVAudioFormat
     ) throws {
-        guard let converter = AVAudioConverter(from: inputFormat, to: monoFormat) else {
+        guard let converter = Self.downmixConverter(from: inputFormat, to: monoFormat) else {
             throw RecorderError.formatUnsupported(inputFormat)
         }
         let sameRate = inputFormat.sampleRate == monoFormat.sampleRate
@@ -589,6 +589,28 @@ final class MicRecorder: @unchecked Sendable {
             }
             self.writeTracked(mono, to: writer)
         }
+    }
+
+    /// The converter the raw tap folds the device's channels into mono with.
+    ///
+    /// An audio interface such as an RME Babyface presents every input as one
+    /// device with a discrete channel layout, and `AVAudioConverter` has no
+    /// rule for folding a discrete layout into mono: it maps no input channel
+    /// to the output (`channelMap == [-1]`) and writes digital zeros, so the
+    /// mic track is silence of a perfectly normal duration. Setting `downmix`
+    /// does not help. Taking input 1 is what the converter already does for an
+    /// ordinary stereo microphone, and it is where an interface's first
+    /// microphone preamp sits.
+    static func downmixConverter(
+        from inputFormat: AVAudioFormat, to monoFormat: AVAudioFormat
+    ) -> AVAudioConverter? {
+        guard let converter = AVAudioConverter(from: inputFormat, to: monoFormat) else {
+            return nil
+        }
+        if converter.channelMap.allSatisfy({ $0.intValue < 0 }) {
+            converter.channelMap = [0]
+        }
+        return converter
     }
 
     /// Feed `buffer` through `converter` exactly once, for the rate-mismatched
